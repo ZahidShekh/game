@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hour‑Hand Estimation Game</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+    *{box-sizing:border-box;padding:0;margin:0}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;padding:2rem;gap:1.5rem;background:#f5f7fa}
+    h1{font-size:clamp(1.5rem,2.5vw,2.5rem)}
+    #note{font-size:1rem;color:#555;text-align:center;max-width:320px}
+    #clock{background:#fff;border-radius:50%;box-shadow:0 4px 10px rgba(0,0,0,.1)}
+    .options{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.75rem;width:100%;max-width:320px}
+    button{background:#fff;border:2px solid #0d47a1;border-radius:12px;cursor:pointer;font-size:1rem;padding:.75rem 1rem;transition:background .2s,border-color .2s}
+    button:hover{background:#e3f2fd}
+    #feedback{font-weight:600;min-height:1.5rem}
+</style>
+</head>
+<body>
+    <h1>Guess the Time!</h1>
+    <p id="note">You can only see the hour hand on the clock. Can you guess what time it is?</p>
+    <canvas id="clock" width="300" height="300" aria-label="clock showing time"></canvas>
+    <div class="options" id="options"></div>
+    <div id="feedback" role="status" aria-live="polite"></div>
+
+<script>
+function randomTime(){
+    const hour=Math.floor(Math.random()*12);
+    const minuteChoices=[0,5,10,15,20,25,30,35,40,45,50,55];
+    const minute=minuteChoices[Math.floor(Math.random()*minuteChoices.length)];
+    return{hour,minute};
+}
+function formatTime(h,m){
+    const hour=(h===0?12:h).toString();
+    const minute=m.toString().padStart(2,'0');
+    return `${hour}:${minute}`;
+}
+function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+}
+let currentTime=null;
+function generateQuestion(){
+    currentTime=randomTime();
+    drawClock(currentTime);
+    const correct=formatTime(currentTime.hour,currentTime.minute);
+    const opts=new Set([correct]);
+    // generate only earlier times
+    const offsets=[-20, -25, -30, -35, -40, -45, -50, -55];
+    while(opts.size<4){
+        const offset = offsets[Math.floor(Math.random()*offsets.length)];
+        let m = (currentTime.minute + offset + 60) % 60;
+        let h = (currentTime.hour + Math.floor((currentTime.minute + offset)/60) + 12) % 12;
+        opts.add(formatTime(h, m));
+    }
+    const options=[...opts];
+    shuffle(options);
+    const optionsDiv=document.getElementById('options');
+    optionsDiv.innerHTML='';
+    options.forEach(val=>{
+        const btn=document.createElement('button');
+        btn.textContent=val;
+        btn.addEventListener('click',()=>checkAnswer(val));
+        optionsDiv.appendChild(btn);
+    });
+    document.getElementById('feedback').textContent='';
+}
+function checkAnswer(answer){
+    const correct=formatTime(currentTime.hour,currentTime.minute);
+    const fb=document.getElementById('feedback');
+    if(answer===correct){
+        fb.textContent='✅ Correct!';
+        fb.style.color='#2e7d32';
+    }else{
+        fb.textContent=`❌ Incorrect. It was ${correct}.`;
+        fb.style.color='#c62828';
+    }
+    setTimeout(generateQuestion,1500);
+}
+function drawClock(time){
+    const canvas=document.getElementById('clock');
+    const ctx=canvas.getContext('2d');
+    const r=canvas.width/2;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.save();
+    ctx.translate(r,r);
+    // clock face
+    ctx.beginPath();
+    ctx.lineWidth=4;
+    ctx.strokeStyle='#0d47a1';
+    ctx.arc(0,0,r-4,0,Math.PI*2);
+    ctx.stroke();
+    // numbers instead of ticks
+    ctx.font = `${r * 0.15}px Arial`;
+    ctx.fillStyle = '#0d47a1';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for(let num=1; num<=12; num++){
+        const ang = num * Math.PI/6;
+        const x = Math.cos(ang - Math.PI/2) * (r * 0.8);
+        const y = Math.sin(ang - Math.PI/2) * (r * 0.8);
+        ctx.fillText(num.toString(), x, y);
+    }
+    // center dot
+    ctx.beginPath();
+    ctx.arc(0,0,r*0.02,0,Math.PI*2);
+    ctx.fillStyle='black';
+    ctx.fill();
+    // hour hand with arrowhead lines
+    ctx.save();
+    const angle=((time.hour%12)+time.minute/60)*Math.PI/6;
+    ctx.rotate(angle);
+    const len = r * 0.6;
+    const headLen = r * 0.1;
+    const headWidth = r * 0.05;
+    // shaft
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.lineTo(0,-len);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle='#0d47a1';
+    ctx.stroke();
+    // arrowhead lines
+    ctx.beginPath();
+    ctx.moveTo(0,-len);
+    ctx.lineTo(-headWidth, -len + headLen);
+    ctx.moveTo(0,-len);
+    ctx.lineTo(headWidth, -len + headLen);
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+}
+window.addEventListener('load',generateQuestion);
+</script>
+</body>
+</html>
